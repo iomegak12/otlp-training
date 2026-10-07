@@ -1,0 +1,69 @@
+# Prometheus: receives the gateway's metrics by remote write and scrapes the Collectors'
+# own metrics (pods annotated prometheus.io/scrape), kube-state-metrics (HPA replica counts)
+# and node exporter.
+server:
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-remote-write-receiver
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+  retention: 2d
+  # Reached from the laptop at http://<any-node-ip>:30090 (scripts/urls.sh prints it).
+  service:
+    type: NodePort
+    nodePort: 30090
+  persistentVolume:
+    enabled: false          # data lives in the pod: a reset is just a restart
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 2Gi }
+alertmanager:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+kube-state-metrics:
+  enabled: true
+prometheus-node-exporter:
+  enabled: true
+# Lab 3: starter alerts on Collector health (Prometheus -> Alerts). No Alertmanager today:
+# the alerts are shown in the Prometheus UI only. Thresholds are low so they fire within the lab;
+# production values are in the comments.
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: otel-collector-health
+        rules:
+          - alert: CollectorDown
+            expr: up{pod=~"otel-(agent|gateway)-collector.*"} == 0
+            for: 1m
+            labels: { severity: critical }
+            annotations:
+              summary: "Collector {{ $labels.pod }} cannot be scraped"
+          - alert: CollectorExportFailures
+            # Data given up on (permanent errors, full queues). Anything above zero is data lost.
+            expr: sum by (exporter) (rate({__name__=~"otelcol_exporter_send_failed_(spans|log_records|metric_points)"}[2m])) > 0
+            for: 2m
+            labels: { severity: critical }
+            annotations:
+              summary: "Exporter {{ $labels.exporter }} is dropping data"
+          - alert: CollectorQueueBacklog
+            # Lab threshold: more than 20 batches waiting. Production: queue_size / queue_capacity > 0.8
+            expr: max by (pod, exporter) (otelcol_exporter_queue_size) > 20
+            for: 2m
+            labels: { severity: warning }
+            annotations:
+              summary: "{{ $labels.exporter }} on {{ $labels.pod }} cannot deliver (backend down or slow?)"
+          - alert: CollectorRefusingData
+            expr: sum by (pod) (rate({__name__=~"otelcol_receiver_refused_(spans|log_records|metric_points)"}[2m])) > 0
+            for: 2m
+            labels: { severity: warning }
+            annotations:
+              summary: "{{ $labels.pod }} is refusing data (memory limiter or rejected requests)"
+          - alert: GatewayKafkaLagGrowing
+            # Lab threshold: 300 messages. Production: size it from your normal peak.
+            expr: sum by (topic) (kafka_consumergroup_lag{consumergroup="otel-gateway"}) > 300
+            for: 2m
+            labels: { severity: warning }
+            annotations:
+              summary: "Gateways are falling behind on {{ $labels.topic }}"

@@ -1,0 +1,13 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "description": "TradeNova notification-service (Day 3). No OpenTelemetry packages: the Operator injects them.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

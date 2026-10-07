@@ -1,0 +1,7 @@
+confluent-kafka==2.15.1
+psycopg[binary]==3.3.6
+requests==2.34.2
+opentelemetry-sdk==1.45.0
+opentelemetry-exporter-otlp-proto-http==1.45.0
+# Provides the logging handler used in Lab C (replaces the deprecated one in opentelemetry-sdk)
+opentelemetry-instrumentation-logging==0.66b0

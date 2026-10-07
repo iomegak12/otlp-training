@@ -1,0 +1,64 @@
+# TradeNova OpenTelemetry Collector - Day 1 configuration
+#
+# One OTLP endpoint in, three open-source backends out:
+#   traces  -> Jaeger      (OTLP)
+#   metrics -> Prometheus  (scraped from :8889)
+#   logs    -> Loki        (OTLP over HTTP)
+# The debug exporter prints everything to the Collector's own log (docker compose logs otel-collector).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Protects the Collector from running out of memory (Day 2 covers ordering and sizing).
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  batch: {}
+
+exporters:
+  # basic | normal | detailed. Set DEBUG_VERBOSITY in .env, then run: docker compose up -d otel-collector
+  # ("docker compose restart" is not enough: it keeps the old environment.)
+  debug:
+    verbosity: ${env:DEBUG_VERBOSITY:-basic}
+
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # OpenMetrics format is needed to expose exemplars (Lab C).
+    enable_open_metrics: true
+    # Resource attributes (service.version, deployment.environment.name, ...) are not copied
+    # onto every series. They are exposed once per service in the target_info metric.
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki, debug]

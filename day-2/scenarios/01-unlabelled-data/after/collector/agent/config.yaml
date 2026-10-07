@@ -1,0 +1,100 @@
+# TradeNova OpenTelemetry Collector - AGENT
+#
+# Receives traces, metrics and logs from trade-api and portfolio-service (OTLP)
+# and sends them on: traces -> Tempo, metrics -> Prometheus (remote write), logs -> Loki.
+#
+# After scenario 1: enrichment (resource_detection, resource, transform/ownership).
+# (Scenario files: scenarios/0N-*/after/collector/agent/config.yaml)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  # --- Scenario 1: enrichment. Who sent this, from where, owned by whom?
+  # Detects attributes of the machine the agent runs on (host.name, os.type).
+  resource_detection/system:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+
+  # The same values for every signal from every service on this platform.
+  resource/platform:
+    attributes:
+      - key: deployment.environment.name
+        value: training
+        action: upsert
+      - key: cloud.region
+        value: ap-south-1
+        action: upsert
+      - key: tradenova.cost_center
+        value: CC-4410
+        action: insert
+
+  # Values that depend on the service: the owning team, looked up from service.name.
+  transform/ownership:
+    error_mode: ignore
+    trace_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+    metric_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+    log_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+
+exporters:
+  otlp_grpc/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Pushes metrics into Prometheus (its remote-write receiver is enabled in docker-compose.yml).
+  prometheus_remote_write:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+
+  # Logs straight to Loki. These retry settings were inherited from the old platform:
+  # if Loki is unavailable for more than 30 seconds, the logs are dropped (scenario 5).
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 30s
+
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource_detection/system, resource/platform, transform/ownership]
+      exporters: [otlp_grpc/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [resource_detection/system, resource/platform, transform/ownership]
+      exporters: [prometheus_remote_write]
+    logs:
+      receivers: [otlp]
+      processors: [resource_detection/system, resource/platform, transform/ownership]
+      exporters: [otlp_http/loki]
+  telemetry:
+    # The Collector's own metrics (queue size, refused and dropped data, memory), scraped by Prometheus.
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

@@ -1,0 +1,73 @@
+# NOTE: the lab settings files (day-1/.env, day-2/.env, day-3/lab.env and
+# every */config/*.env) are part of the course material and ARE tracked.
+# Do not add a blanket `.env` or `*.env` rule here.
+
+# Personal overrides of lab settings
+.env.local
+.env.*.local
+*.local.env
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Kubernetes, Helm and certificates (Day 3)
+kubeconfig*
+*.kubeconfig
+*.pem
+*.key
+*.p12
+*.jks
+*.tgz
+
+# Participant bundles and other archives
+*.zip
+*.tar
+*.tar.gz
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Editors and IDEs
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.classpath
+.project
+.settings/
+.factorypath
+
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local tooling output
+graphify-out/
+.claude/settings.local.json

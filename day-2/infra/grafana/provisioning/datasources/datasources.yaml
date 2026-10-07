@@ -1,0 +1,72 @@
+# Grafana data sources, cross-linked for correlation:
+#   metrics -> traces  (exemplars from Tempo's span metrics open the trace)
+#   traces  -> logs    (a span opens its logs in Loki)
+#   traces  -> metrics (a span opens its service's request rate and latency)
+#   logs    -> traces  (a log line's trace_id opens the trace in Tempo)
+#   service graph      (Tempo's service map, built from metrics in Prometheus)
+# "$$" escapes "$" so Grafana does not treat these placeholders as environment variables.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id      # exemplars from the OpenTelemetry SDKs
+          datasourceUid: tempo
+        - name: traceID       # exemplars from Tempo's span metrics
+          datasourceUid: tempo
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: "$${__value.raw}"
+          urlDisplayLabel: Open trace in Tempo
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service_name
+        customQuery: true
+        query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate
+            query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags}[1m]))'
+          - name: p95 latency
+            query: 'histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags}[1m])))'
+      lokiSearch:
+        datasourceUid: loki

@@ -1,0 +1,52 @@
+# portfolio-service (Python, Flask): team "wealth".
+# No OpenTelemetry package in the image: the Operator injects Python auto-instrumentation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio-service
+  namespace: tradenova
+  labels: { app: portfolio-service, team: wealth }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: portfolio-service }
+  template:
+    metadata:
+      labels: { app: portfolio-service, team: wealth }
+      annotations:
+        instrumentation.opentelemetry.io/inject-python: "true"
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: portfolio-service }
+      containers:
+        - name: portfolio-service
+          image: __REGISTRY__/tradenova-portfolio-service:__IMAGE_TAG__
+          ports:
+            - containerPort: 8000
+          env:
+            - name: TRADE_API_URL
+              value: http://trade-api:8080
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=tradenova,service.version=3.0.0
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-service
+  namespace: tradenova
+spec:
+  selector: { app: portfolio-service }
+  ports:
+    - port: 8000
+      targetPort: 8000

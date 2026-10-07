@@ -1,0 +1,24 @@
+# Lab 4: identities for the Collectors on the TLS listener (9093). Strimzi issues a client
+# certificate for each user and stores it in a secret of the same name in "observability"
+# (keys: user.crt, user.key, ca.crt).
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: otel-agent
+  namespace: observability
+  labels:
+    strimzi.io/cluster: tradenova
+spec:
+  authentication:
+    type: tls
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: otel-gateway
+  namespace: observability
+  labels:
+    strimzi.io/cluster: tradenova
+spec:
+  authentication:
+    type: tls

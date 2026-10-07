@@ -1,0 +1,6 @@
+flask==3.1.3
+requests==2.34.2
+# Zero-code launcher and OTLP exporter. `opentelemetry-bootstrap -a install` (in the Dockerfile)
+# then adds the instrumentation packages for Flask, requests, logging and so on.
+opentelemetry-distro==0.66b0
+opentelemetry-exporter-otlp==1.45.0

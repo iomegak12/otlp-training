@@ -1,0 +1,118 @@
+# TradeNova OpenTelemetry Collector - AGENT
+#
+# Receives traces, metrics and logs from trade-api and portfolio-service (OTLP)
+# and sends them on: traces -> Tempo, metrics -> Prometheus (remote write), logs -> Loki.
+#
+# After scenario 2: memory_limiter first and batch last protect the pipeline.
+# (Scenario files: scenarios/0N-*/after/collector/agent/config.yaml)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  # --- Scenario 2: protect the Collector. ALWAYS the first processor.
+  # Checks memory every second. Above the soft limit (limit - spike) it refuses new data, so
+  # senders get an error and retry later, instead of the Collector being killed.
+  # The percentages are of the container memory limit (320 MiB in docker-compose.yml):
+  # hard limit 240 MiB, soft limit 160 MiB.
+  # Works together with GOMEMLIMIT (AGENT_GOMEMLIMIT in .env), which makes Go's garbage
+  # collector work harder as memory approaches the limit.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+
+  # --- Scenario 1: enrichment. Who sent this, from where, owned by whom?
+  # Detects attributes of the machine the agent runs on (host.name, os.type).
+  resource_detection/system:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+
+  # The same values for every signal from every service on this platform.
+  resource/platform:
+    attributes:
+      - key: deployment.environment.name
+        value: training
+        action: upsert
+      - key: cloud.region
+        value: ap-south-1
+        action: upsert
+      - key: tradenova.cost_center
+        value: CC-4410
+        action: insert
+
+  # Values that depend on the service: the owning team, looked up from service.name.
+  transform/ownership:
+    error_mode: ignore
+    trace_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+    metric_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+    log_statements:
+      - 'set(resource.attributes["tradenova.team"], "trading-core") where resource.attributes["service.name"] == "trade-api"'
+      - 'set(resource.attributes["tradenova.team"], "wealth-apps") where resource.attributes["service.name"] == "portfolio-service"'
+
+  # --- Scenario 2: send in batches. ALWAYS the last processor.
+  # Fewer, bigger requests: less CPU, less network, far fewer requests waiting in the queue.
+  batch:
+    send_batch_size: 2048
+    timeout: 2s
+
+exporters:
+  otlp_grpc/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Pushes metrics into Prometheus (its remote-write receiver is enabled in docker-compose.yml).
+  prometheus_remote_write:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+
+  # Logs straight to Loki. These retry settings were inherited from the old platform:
+  # if Loki is unavailable for more than 30 seconds, the logs are dropped (scenario 5).
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 30s
+
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection/system, resource/platform, transform/ownership, batch]
+      exporters: [otlp_grpc/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection/system, resource/platform, transform/ownership, batch]
+      exporters: [prometheus_remote_write]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection/system, resource/platform, transform/ownership, batch]
+      exporters: [otlp_http/loki]
+  telemetry:
+    # The Collector's own metrics (queue size, refused and dropped data, memory), scraped by Prometheus.
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

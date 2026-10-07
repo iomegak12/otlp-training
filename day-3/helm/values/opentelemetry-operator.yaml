@@ -1,0 +1,13 @@
+# OpenTelemetry Operator: manages the agent and gateway Collectors (OpenTelemetryCollector CRs)
+# and injects auto-instrumentation into application pods (Instrumentation CR).
+manager:
+  # Default Collector image for any CR that does not set one (ours set it explicitly).
+  collectorImage:
+    repository: otel/opentelemetry-collector-contrib
+    tag: 0.161.0
+admissionWebhooks:
+  # The webhook that injects instrumentation needs a certificate; cert-manager provides it.
+  certManager:
+    enabled: true
+  autoGenerateCert:
+    enabled: false

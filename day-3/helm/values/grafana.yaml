@@ -1,0 +1,126 @@
+# Grafana with one data source per tenant. Loki and Tempo are multi-tenant, so each data source
+# sends its tenant in the X-Scope-OrgID header.
+#   *shared*  : everything, before Lab 4 (tenant tradenova-shared)
+#   trading   : trade-api and notification-service (after Lab 4)
+#   wealth    : portfolio-service and eod-reconciliation (after Lab 4)
+adminUser: admin
+adminPassword: tradenova
+grafana.ini:
+  auth.anonymous:
+    enabled: true
+    org_role: Admin
+  users:
+    default_theme: dark
+persistence:
+  enabled: false
+# Reached from the laptop at http://<any-node-ip>:30300 (scripts/urls.sh prints it).
+service:
+  type: NodePort
+  nodePort: 30300
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        isDefault: true
+
+      - name: Loki (shared)
+        uid: loki-shared
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          derivedFields:
+            - name: TraceID
+              matcherType: label
+              matcherRegex: trace_id
+              datasourceUid: tempo-shared
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: tradenova-shared
+      - name: Loki (trading)
+        uid: loki-trading
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          derivedFields:
+            - name: TraceID
+              matcherType: label
+              matcherRegex: trace_id
+              datasourceUid: tempo-trading
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: trading
+      - name: Loki (wealth)
+        uid: loki-wealth
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          derivedFields:
+            - name: TraceID
+              matcherType: label
+              matcherRegex: trace_id
+              datasourceUid: tempo-wealth
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: wealth
+
+      - name: Tempo (shared)
+        uid: tempo-shared
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          tracesToLogsV2:
+            datasourceUid: loki-shared
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags: [{ key: service.name, value: service_name }]
+            customQuery: true
+            query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+        secureJsonData:
+          httpHeaderValue1: tradenova-shared
+      - name: Tempo (trading)
+        uid: tempo-trading
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          tracesToLogsV2:
+            datasourceUid: loki-trading
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags: [{ key: service.name, value: service_name }]
+            customQuery: true
+            query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+        secureJsonData:
+          httpHeaderValue1: trading
+      - name: Tempo (wealth)
+        uid: tempo-wealth
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          tracesToLogsV2:
+            datasourceUid: loki-wealth
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags: [{ key: service.name, value: service_name }]
+            customQuery: true
+            query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+        secureJsonData:
+          httpHeaderValue1: wealth

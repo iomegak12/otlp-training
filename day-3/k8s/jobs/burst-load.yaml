@@ -1,0 +1,36 @@
+# Lab 1: the "market open" burst. telemetrygen floods the agent with traces for 6 minutes,
+# so the gateways' CPU rises and the autoscaler adds replicas. Plain OTLP/gRPC (before Lab 4).
+# Started by labs/lab1-agent-gateway-scaling/burst-load.sh, which sets the rate, the duration
+# and the number of pods. One pod tops out at about 15,000 spans per second whatever the rate,
+# so the load that makes the autoscaler react comes from running several pods at once.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: burst-load
+  namespace: tradenova
+  labels: { app: burst-load }
+spec:
+  backoffLimit: 0
+  parallelism: __PODS__
+  completions: __PODS__
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: burst-load }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - traces
+            - --otlp-endpoint=otel-agent-collector.observability.svc.cluster.local:4317
+            - --otlp-insecure
+            - --service=market-open-burst
+            - --workers=4
+            - --rate=__RATE__
+            - --child-spans=4
+            - --duration=__DURATION__
+          resources:
+            requests: { cpu: 500m, memory: 128Mi }
+            limits: { memory: 512Mi }

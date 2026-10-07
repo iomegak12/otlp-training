@@ -1,0 +1,31 @@
+# Scenario 8: errors and latency of the TradeNova services (metrics pushed by the Collector agent).
+# job is built from service.namespace/service.name, e.g. "tradenova/trade-api".
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceHighErrorRate
+        expr: |
+          sum by (job) (rate(http_server_request_duration_seconds_count{job=~"tradenova/.*", http_response_status_code=~"5.."}[1m]))
+            /
+          sum by (job) (rate(http_server_request_duration_seconds_count{job=~"tradenova/.*"}[1m]))
+            > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "{{ $value | humanizePercentage }} of requests are failing with HTTP 5xx."
+
+      - alert: ServiceHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket{job=~"tradenova/.*", http_route!="/health"}[2m]))
+          ) > 0.5
+        for: 1m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Slow responses from {{ $labels.job }}"
+          description: "p95 latency is {{ $value | humanizeDuration }}."

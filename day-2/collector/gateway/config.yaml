@@ -1,0 +1,56 @@
+# TradeNova OpenTelemetry Collector - GATEWAY
+#
+# Reads log records from the Kafka topic tradenova-logs and delivers them to Loki.
+# Used from scenario 5 onwards (before that the topic is empty and this Collector is idle).
+#
+# How "nothing is lost" works:
+#   - No batch processor and no sending queue: when Loki is down, the export call blocks
+#     instead of buffering in memory.
+#   - Retries never stop (max_elapsed_time: 0). While the exporter is retrying, this
+#     Collector stops reading from Kafka, so the log records wait safely in the topic
+#     (watch the consumer-group lag grow).
+#   - Kafka offsets are committed only after a record has been delivered
+#     (message_marking.after), so a gateway restart re-reads anything not yet delivered.
+
+receivers:
+  kafka:
+    brokers: [kafka:9092]
+    group_id: otel-gateway
+    initial_offset: earliest
+    logs:
+      topics: [tradenova-logs]
+      encoding: otlp_proto
+    message_marking:
+      after: true
+      on_error: false
+
+exporters:
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    sending_queue:
+      enabled: false
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 0
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      receivers: [kafka]
+      processors: []
+      exporters: [otlp_http/loki]
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

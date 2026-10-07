@@ -1,0 +1,157 @@
+# AFTER LAB 1: gateway autoscaling (HPA 2-6 replicas)
+# Gateway Collectors: a StatefulSet (each pod keeps its own disk for the persistent queue),
+# managed by the OpenTelemetry Operator. They read the three Kafka topics as one consumer group
+# and deliver to Tempo, Loki and Prometheus.
+
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-gateway
+  namespace: observability
+spec:
+  mode: statefulset
+  image: otel/opentelemetry-collector-contrib:0.161.0
+  serviceAccount: otel-gateway
+  replicas: 2
+  podAnnotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8888'
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  env:
+  - name: GOMEMLIMIT
+    value: 800MiB
+  initContainers:
+  - name: queue-dir-permissions
+    image: busybox:1.37
+    command:
+    - sh
+    - -c
+    - chown -R 10001:10001 /var/lib/otelcol/queue
+    volumeMounts:
+    - name: queue
+      mountPath: /var/lib/otelcol/queue
+  volumeClaimTemplates:
+  - metadata:
+      name: queue
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+  volumes:
+  - name: kafka-user
+    secret:
+      secretName: otel-gateway
+      optional: true
+  - name: kafka-ca
+    secret:
+      secretName: tradenova-cluster-ca-cert
+      optional: true
+  volumeMounts:
+  - name: queue
+    mountPath: /var/lib/otelcol/queue
+  - name: kafka-user
+    mountPath: /etc/otel/kafka-user
+    readOnly: true
+  - name: kafka-ca
+    mountPath: /etc/otel/kafka-ca
+    readOnly: true
+  config:
+    receivers:
+      kafka:
+        brokers:
+        - tradenova-kafka-bootstrap.kafka.svc.cluster.local:9092
+        group_id: otel-gateway
+        initial_offset: earliest
+        traces:
+          topics:
+          - otlp-traces
+          encoding: otlp_proto
+        metrics:
+          topics:
+          - otlp-metrics
+          encoding: otlp_proto
+        logs:
+          topics:
+          - otlp-logs
+          encoding: otlp_proto
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 75
+        spike_limit_percentage: 25
+      batch:
+        send_batch_size: 4096
+        timeout: 2s
+    exporters:
+      otlp_grpc/tempo:
+        endpoint: tempo.monitoring.svc.cluster.local:4317
+        tls:
+          insecure: true
+        headers:
+          X-Scope-OrgID: tradenova-shared
+        sending_queue:
+          enabled: true
+      otlp_http/loki:
+        endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+        headers:
+          X-Scope-OrgID: tradenova-shared
+        sending_queue:
+          enabled: true
+      prometheus_remote_write:
+        endpoint: http://prometheus-server.monitoring.svc.cluster.local/api/v1/write
+        tls:
+          insecure: true
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    service:
+      extensions:
+      - health_check
+      pipelines:
+        traces:
+          receivers:
+          - kafka
+          processors: &id001
+          - memory_limiter
+          - batch
+          exporters:
+          - otlp_grpc/tempo
+        logs:
+          receivers:
+          - kafka
+          processors: *id001
+          exporters:
+          - otlp_http/loki
+        metrics:
+          receivers:
+          - kafka
+          processors:
+          - memory_limiter
+          - batch
+          exporters:
+          - prometheus_remote_write
+      telemetry:
+        metrics:
+          readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888
+  autoscaler:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 60
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+      scaleDown:
+        stabilizationWindowSeconds: 120

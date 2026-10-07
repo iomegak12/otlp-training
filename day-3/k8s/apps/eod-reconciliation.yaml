@@ -1,0 +1,35 @@
+# eod-reconciliation (Python): a CronJob every 2 minutes, team "wealth". About 1 run in 5 fails.
+# The Operator injects Python auto-instrumentation into every Job pod it creates, so each run
+# becomes a trace; the SDK flushes its data when the process exits.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: eod-reconciliation
+  namespace: tradenova
+  labels: { app: eod-reconciliation, team: wealth }
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels: { app: eod-reconciliation, team: wealth }
+          annotations:
+            instrumentation.opentelemetry.io/inject-python: "true"
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: eod-reconciliation
+              image: __REGISTRY__/tradenova-eod-reconciliation:__IMAGE_TAG__
+              env:
+                - name: PORTFOLIO_URL
+                  value: http://portfolio-service:8000
+                - name: OTEL_RESOURCE_ATTRIBUTES
+                  value: service.namespace=tradenova,service.version=3.0.0
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { memory: 256Mi }

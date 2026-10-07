@@ -1,0 +1,48 @@
+# Lab 4 version of the burst: the agent now demands a client certificate and the ingest token.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: burst-load
+  namespace: tradenova
+  labels: { app: burst-load }
+spec:
+  backoffLimit: 0
+  parallelism: __PODS__
+  completions: __PODS__
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: burst-load }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          env:
+            - name: INGEST_TOKEN
+              valueFrom:
+                secretKeyRef: { name: otel-ingest-token, key: token }
+          args:
+            - traces
+            - --otlp-endpoint=otel-agent-collector.observability.svc.cluster.local:4317
+            - --ca-cert=/certs/ca.crt
+            - --mtls
+            - --client-cert=/certs/tls.crt
+            - --client-key=/certs/tls.key
+            - --otlp-header=x-tradenova-token="$(INGEST_TOKEN)"
+            - --service=market-open-burst
+            - --workers=4
+            - --rate=__RATE__
+            - --child-spans=4
+            - --duration=__DURATION__
+          volumeMounts:
+            - name: client-tls
+              mountPath: /certs
+              readOnly: true
+          resources:
+            requests: { cpu: 500m, memory: 128Mi }
+            limits: { memory: 512Mi }
+      volumes:
+        - name: client-tls
+          secret:
+            secretName: otel-client-tls

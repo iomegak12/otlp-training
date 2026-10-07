@@ -1,0 +1,76 @@
+# TradeNova Prometheus
+#
+# After scenario 8: alert rules are loaded.
+# Apply changes without a restart:  curl -X POST http://localhost:9090/-/reload
+#
+# Metrics from trade-api and portfolio-service are not scraped: the Collector agent pushes them
+# here with remote write (--web.enable-remote-write-receiver in docker-compose.yml).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+# --- Scenario 8: alert rules (batch job, hosts, services)
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # The Collectors' own health metrics (scenario 2 and 5).
+  - job_name: otel-collectors
+    static_configs:
+      - targets: ["otel-agent:8888", "otel-gateway:8888"]
+
+  # The Linux host the platform runs on.
+  - job_name: platform-host
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          team: platform
+
+  # --- Scenario 7: discover the market-data fleet from AWS EC2 (the fake EC2 API in the lab).
+  - job_name: market-data
+    ec2_sd_configs:
+      - endpoint: http://fake-aws:5000   # remove this line to use real AWS
+        region: us-east-1
+        access_key: training             # real AWS: use an IAM role instead of keys
+        secret_key: training
+        port: 9100
+        refresh_interval: 15s
+        filters:
+          - name: tag:monitoring
+            values: [enabled]
+          - name: instance-state-name
+            values: [running]
+    relabel_configs:
+      # Lab only: each "instance" is a container, so the address comes from a tag.
+      # Real AWS: leave this rule out and Prometheus uses the private IP address.
+      - source_labels: [__meta_ec2_tag_scrape_target]
+        target_label: __address__
+      # Turn EC2 metadata into useful labels.
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_tag_team]
+        target_label: team
+      - source_labels: [__meta_ec2_instance_id]
+        target_label: ec2_instance_id
+      - source_labels: [__meta_ec2_instance_type]
+        target_label: instance_type
+      - source_labels: [__meta_ec2_availability_zone]
+        target_label: availability_zone
+
+  # --- Scenario 6: results of short-lived batch jobs, pushed to the Pushgateway.
+  # honor_labels keeps the job label the batch job pushed (eod_reconciliation)
+  # instead of overwriting it with this scrape job's name.
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]

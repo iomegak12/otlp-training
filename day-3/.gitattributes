@@ -1,0 +1,5 @@
+# Keep Unix line endings, even when cloned on Windows (bash reads these files)
+*.sh text eol=lf
+*.env text eol=lf
+*.yaml text eol=lf
+*.mmd text eol=lf

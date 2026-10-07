@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # The Collector's Prometheus exporter: every metric the TradeNova services send over OTLP.
+  - job_name: otel-collector
+    # Keep the job and instance labels the Collector derives from service.name
+    # and service.instance.id, instead of renaming them to exported_job / exported_instance.
+    honor_labels: true
+    static_configs:
+      - targets: ["otel-collector:8889"]

@@ -1,0 +1,48 @@
+# Grafana data sources, pre-wired for correlation:
+#   metrics -> traces  (Prometheus exemplars open the trace in Jaeger)
+#   traces  -> logs    (a Jaeger span opens its logs in Loki)
+#   logs    -> traces  (a Loki log line's trace_id opens the trace in Jaeger)
+# "$$" escapes "$" so Grafana does not treat these placeholders as environment variables.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service_name
+        customQuery: true
+        query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: jaeger
+          url: "$${__value.raw}"
+          urlDisplayLabel: Open trace in Jaeger

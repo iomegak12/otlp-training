@@ -1,0 +1,20 @@
+# Namespaces of the TradeNova Day 3 platform (Helm creates cert-manager and the Operator's own).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tradenova        # the applications
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability    # agent and gateway Collectors
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka            # Strimzi and the Kafka cluster
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring       # Prometheus, Loki, Tempo, Grafana

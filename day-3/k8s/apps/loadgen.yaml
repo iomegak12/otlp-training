@@ -1,0 +1,28 @@
+# loadgen: steady traffic (about 5 requests per second). Not instrumented on purpose.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: tradenova
+  labels: { app: loadgen }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: loadgen }
+  template:
+    metadata:
+      labels: { app: loadgen }
+    spec:
+      containers:
+        - name: loadgen
+          image: __REGISTRY__/tradenova-loadgen:__IMAGE_TAG__
+          env:
+            - name: TRADE_API_URL
+              value: http://trade-api:8080
+            - name: PORTFOLIO_URL
+              value: http://portfolio-service:8000
+            - name: LOADGEN_RPS
+              value: "5"
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 128Mi }

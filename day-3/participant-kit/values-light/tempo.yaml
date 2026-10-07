@@ -1,0 +1,8 @@
+# Light kit: smaller Tempo (added on top of helm/values/tempo.yaml).
+tempo:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1536Mi }
+persistence:
+  enabled: true
+  size: 3Gi

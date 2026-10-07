@@ -1,0 +1,24 @@
+# Scenario 8: alerts for the end-of-day reconciliation batch job (results come from the Pushgateway).
+groups:
+  - name: batch-jobs
+    rules:
+      - alert: EodReconciliationFailed
+        expr: eod_job_success{job="eod_reconciliation"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          team: finance-ops
+        annotations:
+          summary: "End-of-day reconciliation failed"
+          description: "The last run of eod_reconciliation reported a failure."
+
+      - alert: EodReconciliationStale
+        # Production would use about 26 hours for a nightly job. The lab uses 5 minutes.
+        expr: time() - eod_job_last_success_timestamp_seconds{job="eod_reconciliation"} > 300
+        for: 1m
+        labels:
+          severity: critical
+          team: finance-ops
+        annotations:
+          summary: "End-of-day reconciliation has not succeeded recently"
+          description: "Last successful run was {{ $value | humanizeDuration }} ago."

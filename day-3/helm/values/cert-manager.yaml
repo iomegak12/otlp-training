@@ -1,0 +1,3 @@
+# cert-manager: issues the TLS certificates used in Lab 4 (and the Operator's webhook certificate).
+crds:
+  enabled: true

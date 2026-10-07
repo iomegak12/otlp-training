@@ -1,0 +1,42 @@
+# Light kit: one topic per signal, 3 partitions (so at most 3 busy gateways), 1 copy each.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: otlp-traces
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: tradenova
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 86400000      # 24 hours: how long data can wait for the gateways
+    min.insync.replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: otlp-metrics
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: tradenova
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 86400000
+    min.insync.replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: otlp-logs
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: tradenova
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 86400000
+    min.insync.replicas: 1

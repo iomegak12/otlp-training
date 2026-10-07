@@ -1,0 +1,32 @@
+# TradeNova Alertmanager: every alert becomes an e-mail in the local Mailpit inbox
+# (http://localhost:8025). In production, replace the SMTP settings with your mail relay,
+# or the email receivers with Slack, Microsoft Teams, PagerDuty and so on.
+
+global:
+  smtp_smarthost: mailpit:1025
+  smtp_from: alertmanager@tradenova.example
+  smtp_require_tls: false
+
+route:
+  receiver: platform-oncall
+  # Alerts with the same name and job are sent together in one e-mail.
+  group_by: [alertname, job]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  routes:
+    # Batch job alerts go to the finance operations team instead.
+    - matchers:
+        - team = "finance-ops"
+      receiver: finance-ops
+
+receivers:
+  - name: platform-oncall
+    email_configs:
+      - to: platform-oncall@tradenova.example
+        send_resolved: true
+
+  - name: finance-ops
+    email_configs:
+      - to: finance-ops@tradenova.example
+        send_resolved: true

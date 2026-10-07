@@ -1,0 +1,35 @@
+# STARTING STATE (before Lab 1)
+# Instrumentation: how the Operator instruments TradeNova pods. A pod opts in with an annotation:
+#   instrumentation.opentelemetry.io/inject-java: "true"      (trade-api)
+#   instrumentation.opentelemetry.io/inject-python: "true"    (portfolio-service, eod-reconciliation)
+#   instrumentation.opentelemetry.io/inject-nodejs: "true"    (notification-service)
+# The Operator adds an init container with the agent/SDK and sets the OTEL_* variables below.
+# Changes only reach pods created afterwards: restart the deployments after applying.
+
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: tradenova
+  namespace: tradenova
+spec:
+  exporter:
+    endpoint: http://otel-agent-collector.observability.svc.cluster.local:4318
+  propagators:
+  - tracecontext
+  - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: '1'
+  env:
+  - name: OTEL_EXPORTER_OTLP_PROTOCOL
+    value: http/protobuf
+  - name: OTEL_METRIC_EXPORT_INTERVAL
+    value: '15000'
+  - name: OTEL_LOGS_EXPORTER
+    value: otlp
+  - name: OTEL_SEMCONV_STABILITY_OPT_IN
+    value: http
+  python:
+    env:
+    - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+      value: 'true'

@@ -1,0 +1,14 @@
+#cloud-config
+# Base settings for every TradeNova lab VM.
+package_update: true
+packages:
+  - curl
+  - jq
+write_files:
+  # Many pods per node (Collectors, Kafka, backends) need more file watches than the default.
+  - path: /etc/sysctl.d/90-tradenova.conf
+    content: |
+      fs.inotify.max_user_instances = 1024
+      fs.inotify.max_user_watches = 524288
+runcmd:
+  - sysctl --system

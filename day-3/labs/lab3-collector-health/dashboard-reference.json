@@ -1,0 +1,814 @@
+{
+  "dashboard": {
+    "uid": "tradenova-collector-health",
+    "title": "TradeNova - Collector health",
+    "tags": [
+      "tradenova",
+      "day3"
+    ],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "schemaVersion": 39,
+    "editable": true,
+    "panels": [
+      {
+        "type": "row",
+        "title": "1. Is data coming in? (agents)",
+        "id": 1,
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "panels": []
+      },
+      {
+        "type": "stat",
+        "title": "Collectors up",
+        "id": 2,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Agent and gateway pods that Prometheus can scrape. Scraped directly, so it works even when the pipeline is broken.",
+        "gridPos": {
+          "h": 8,
+          "w": 4,
+          "x": 0,
+          "y": 1
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 4
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "count(up{pod=~\"otel-(agent|gateway)-collector.*\"} == 1)",
+            "instant": false
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Agent intake (items/s)",
+        "id": 3,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "What the applications hand to the agents. Flat zero = applications cannot reach the agent.",
+        "gridPos": {
+          "h": 8,
+          "w": 10,
+          "x": 4,
+          "y": 1
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum(rate(otelcol_receiver_accepted_spans{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "spans"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "sum(rate(otelcol_receiver_accepted_log_records{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "log records"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "sum(rate(otelcol_receiver_accepted_metric_points{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "metric points"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Agent refusals (items/s)",
+        "id": 4,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Data the agent turned away (memory limiter under pressure, rejected requests). Should be zero.",
+        "gridPos": {
+          "h": 8,
+          "w": 10,
+          "x": 14,
+          "y": 1
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "line"
+              }
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum(rate(otelcol_receiver_refused_spans{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "spans"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "sum(rate(otelcol_receiver_refused_log_records{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "log records"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "sum(rate(otelcol_receiver_refused_metric_points{pod=~\"otel-agent-collector.*\"}[1m]))",
+            "legendFormat": "metric points"
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "title": "2. Kafka in the middle",
+        "id": 5,
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 9
+        },
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "title": "Kafka lag by topic (messages)",
+        "id": 6,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Messages written by the agents and not yet read by the gateways. Rising = gateways too slow, or not reading a topic.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 10
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum by (topic) (kafka_consumergroup_lag{consumergroup=\"otel-gateway\"})",
+            "legendFormat": "{{topic}}"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Gateway intake from Kafka (items/s)",
+        "id": 7,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Should match the agent intake. A signal at zero here but not at the agents = the gateway is not reading that topic.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 10
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum(rate(otelcol_receiver_accepted_spans{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "spans"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "sum(rate(otelcol_receiver_accepted_log_records{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "log records"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "sum(rate(otelcol_receiver_accepted_metric_points{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "metric points"
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "title": "3. Is data going out? (gateways)",
+        "id": 8,
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 18
+        },
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "title": "Exported by exporter (items/s)",
+        "id": 9,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Delivered to Tempo, Loki and Prometheus.",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 0,
+          "y": 19
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_sent_spans{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} spans"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_sent_log_records{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} logs"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_sent_metric_points{pod=~\"otel-gateway-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} metrics"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Export failures (items/s)",
+        "id": 10,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Data given up on: permanent errors (for example HTTP 404) or a full queue. Anything above zero is lost data.",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 8,
+          "y": 19
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "line"
+              }
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_spans{pod=~\"otel-(agent|gateway)-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} spans"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_log_records{pod=~\"otel-(agent|gateway)-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} logs"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_metric_points{pod=~\"otel-(agent|gateway)-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} metrics"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "D",
+            "expr": "sum by (exporter) (rate({__name__=~\"otelcol_exporter_enqueue_failed_(spans|log_records|metric_points)\", pod=~\"otel-(agent|gateway)-collector.*\"}[1m]))",
+            "legendFormat": "{{exporter}} queue full"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Sending queue fill (%)",
+        "id": 11,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Batches waiting for a backend. Growing = the backend is down or slow. 100% = data starts being dropped.",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 16,
+          "y": 19
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "line"
+              }
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "max by (pod, exporter) (otelcol_exporter_queue_size{pod=~\"otel-(agent|gateway)-collector.*\"} / otelcol_exporter_queue_capacity{pod=~\"otel-(agent|gateway)-collector.*\"}) * 100",
+            "legendFormat": "{{pod}} {{exporter}}"
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "title": "4. Capacity",
+        "id": 12,
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 27
+        },
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "title": "Gateway replicas",
+        "id": 13,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "What the autoscaler decided. No data before Lab 1 (no autoscaler).",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 0,
+          "y": 28
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"observability\"}",
+            "legendFormat": "current"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "B",
+            "expr": "kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"observability\"}",
+            "legendFormat": "desired"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "C",
+            "expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"observability\"}",
+            "legendFormat": "max (= Kafka partitions)"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "CPU per Collector pod (cores)",
+        "id": 14,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Gateways are limited to 0.5 core each; the autoscaler targets 60% of the 0.1 core request.",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 8,
+          "y": 28
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "rate(otelcol_process_cpu_seconds{pod=~\"otel-(agent|gateway)-collector.*\"}[1m])",
+            "legendFormat": "{{pod}}"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Memory per Collector pod",
+        "id": 15,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Resident memory. Agents are limited to 512 MiB, gateways to 1 GiB.",
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 16,
+          "y": 28
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "none"
+              }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "refId": "A",
+            "expr": "otelcol_process_memory_rss{pod=~\"otel-(agent|gateway)-collector.*\"}",
+            "legendFormat": "{{pod}}"
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
+    "id": null
+  },
+  "overwrite": true,
+  "message": "Lab 3 reference dashboard"
+}

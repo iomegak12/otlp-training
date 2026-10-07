@@ -1,0 +1,7 @@
+# Light kit: smaller Loki (added on top of helm/values/loki.yaml).
+singleBinary:
+  persistence:
+    size: 3Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }

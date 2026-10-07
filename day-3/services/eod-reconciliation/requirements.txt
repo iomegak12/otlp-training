@@ -1,0 +1,2 @@
+requests==2.34.2
+# No OpenTelemetry packages: the OpenTelemetry Operator injects them into the CronJob's pods.

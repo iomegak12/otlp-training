@@ -1,0 +1,12 @@
+# Strimzi: runs Kafka on Kubernetes. Installed in the "kafka" namespace.
+# It must also manage the "observability" namespace, where the Collectors' KafkaUsers live
+# (their certificates are created there, next to the Collectors that use them).
+watchNamespaces:
+  - observability
+
+# The User Operator watches a namespace other than Kafka's own (userOperator.watchedNamespace in
+# k8s/kafka/kafka-cluster.yaml). Strimzi refuses to deploy the Entity Operator for that unless
+# this switch is on, and the Kafka resource then never becomes Ready.
+extraEnvs:
+  - name: STRIMZI_ENTITY_OPERATOR_WATCHED_NAMESPACE_ENABLED
+    value: "true"

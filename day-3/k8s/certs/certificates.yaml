@@ -1,0 +1,48 @@
+# Lab 4 certificates, signed by the TradeNova telemetry CA.
+#
+# otel-agent-tls (observability): the agent's SERVER certificate. Applications check it.
+# otel-client-tls (tradenova):    the applications' CLIENT certificate. The agent checks it.
+#
+# Each secret holds tls.crt, tls.key and ca.crt. Keys are PKCS#8: the Java SDK requires it.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-agent-tls
+  namespace: observability
+spec:
+  secretName: otel-agent-tls
+  duration: 2160h
+  renewBefore: 360h
+  commonName: otel-agent-collector.observability.svc
+  dnsNames:
+    - otel-agent-collector
+    - otel-agent-collector.observability
+    - otel-agent-collector.observability.svc
+    - otel-agent-collector.observability.svc.cluster.local
+  usages: [server auth, digital signature, key encipherment]
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  issuerRef:
+    name: tradenova-telemetry-ca
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-client-tls
+  namespace: tradenova
+spec:
+  secretName: otel-client-tls
+  duration: 2160h
+  renewBefore: 360h
+  commonName: tradenova-workloads
+  usages: [client auth, digital signature, key encipherment]
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  issuerRef:
+    name: tradenova-telemetry-ca
+    kind: ClusterIssuer

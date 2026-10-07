@@ -1,0 +1,33 @@
+# Scenario 8: host health for the platform host and the market-data fleet (node exporter).
+groups:
+  - name: host-health
+    rules:
+      - alert: InstanceDown
+        expr: up{job=~"platform-host|market-data"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "{{ $labels.instance }} is down"
+          description: "Prometheus has not been able to scrape {{ $labels.instance }} (job {{ $labels.job }}) for 1 minute."
+
+      - alert: HostHighCpu
+        expr: 100 * (1 - avg by (job, instance) (rate(node_cpu_seconds_total{mode="idle"}[2m]))) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.0f\" }}%."
+
+      - alert: HostLowDisk
+        expr: 100 * node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 10
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value | printf \"%.0f\" }}% of the root file system is free."

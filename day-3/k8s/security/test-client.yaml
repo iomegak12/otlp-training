@@ -1,0 +1,26 @@
+# Lab 4: a toolbox pod (curl, openssl) in the application namespace. It plays two roles:
+#   - a "rogue" client: plain HTTP, or HTTPS without a certificate, or without the token
+#   - a well-behaved client: with the application certificate (mounted at /certs) and the token
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-client
+  namespace: tradenova
+  labels: { app: test-client }
+spec:
+  containers:
+    - name: toolbox
+      image: nicolaka/netshoot:v0.13
+      command: ["sleep", "infinity"]
+      volumeMounts:
+        - name: client-tls
+          mountPath: /certs
+          readOnly: true
+      resources:
+        requests: { cpu: 10m, memory: 32Mi }
+        limits: { memory: 128Mi }
+  volumes:
+    - name: client-tls
+      secret:
+        secretName: otel-client-tls
+        optional: true

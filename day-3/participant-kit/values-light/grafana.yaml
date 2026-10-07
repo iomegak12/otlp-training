@@ -1,0 +1,3 @@
+# Light kit: smaller Grafana (added on top of helm/values/grafana.yaml).
+resources:
+  requests: { cpu: 50m, memory: 128Mi }

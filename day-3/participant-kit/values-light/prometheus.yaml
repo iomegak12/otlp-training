@@ -1,0 +1,6 @@
+# Light kit: smaller Prometheus (added on top of helm/values/prometheus.yaml).
+server:
+  retention: 1d
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }

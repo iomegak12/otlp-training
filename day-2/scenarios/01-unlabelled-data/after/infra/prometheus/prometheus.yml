@@ -1,0 +1,38 @@
+# TradeNova Prometheus
+#
+# STARTING STATE: no Pushgateway, a hand-maintained market-data list, no alert rules.
+# Apply changes without a restart:  curl -X POST http://localhost:9090/-/reload
+#
+# Metrics from trade-api and portfolio-service are not scraped: the Collector agent pushes them
+# here with remote write (--web.enable-remote-write-receiver in docker-compose.yml).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # The Collectors' own health metrics (scenario 2 and 5).
+  - job_name: otel-collectors
+    static_configs:
+      - targets: ["otel-agent:8888", "otel-gateway:8888"]
+
+  # The Linux host the platform runs on.
+  - job_name: platform-host
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          team: platform
+
+  # The market-data fleet, maintained by hand. It lists one server; the fleet has grown since.
+  - job_name: market-data
+    static_configs:
+      - targets: ["market-data-1:9100"]

@@ -1,0 +1,13 @@
+# Tempo 2.10 single binary, MULTI-TENANT (every request needs X-Scope-OrgID).
+fullnameOverride: tempo
+tempo:
+  multitenancyEnabled: true
+  reportingEnabled: false
+  retention: 24h
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 3Gi }
+# Keeps traces when Tempo is stopped and started again (Lab 2 backend outage).
+persistence:
+  enabled: true
+  size: 5Gi
